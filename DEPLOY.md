@@ -1,8 +1,13 @@
 # Deploying BKS
 
-This guide takes BKS from a fresh server to production: the web app (marketplace, business workspace,
-admin, API), the WhatsApp gateway, Postgres, HTTPS, reminders, and the owner mobile app.
+Two ways to run BKS in production:
 
+- **[One click on Vercel](#one-click-on-vercel)**: web app, database, login, cron and HTTPS hosted for you.
+  WhatsApp (optional) adds a one-click service on Render.
+- **[One server with Docker Compose](#3-recommended-one-server-with-docker-compose)**: everything on a VM
+  you control, including WhatsApp.
+
+- [One click on Vercel](#one-click-on-vercel)
 - [1. What you are deploying](#1-what-you-are-deploying)
 - [2. How the database works](#2-how-the-database-works)
 - [3. Recommended: one server with Docker Compose](#3-recommended-one-server-with-docker-compose)
@@ -14,6 +19,88 @@ admin, API), the WhatsApp gateway, Postgres, HTTPS, reminders, and the owner mob
 - [9. Security checklist](#9-security-checklist)
 - [10. Scaling](#10-scaling)
 - [11. Troubleshooting](#11-troubleshooting)
+
+---
+
+## One click on Vercel
+
+### What Vercel hosts, and what it can't
+
+| Piece | Where | Notes |
+|---|---|---|
+| Web app: marketplace, workspace, admin, API, AI agents | **Vercel** | Next.js, HTTPS and a `*.vercel.app` domain included |
+| Database | **Neon Postgres via the Vercel Marketplace** | Created and connected in the same click; free tier to start |
+| Login and accounts | **Built in** | BKS has its own sign-in (sessions stored in Postgres); no auth service to buy |
+| Telegram bot, Stripe webhooks | **Vercel** | Configured later in the admin |
+| Appointment reminders | **Vercel Cron** | Hobby: once a day (the app looks a day ahead, so nothing is missed). Pro: optional every 10 minutes |
+| WhatsApp gateway | **Render** (separate click, optional) | Must stay connected 24/7; Vercel functions scale to zero, so it can't run there |
+
+### Step 1: deploy the web app and database
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fsumsumai%2Fbks%2Ftree%2Fmain%2Fapps%2Fweb&project-name=bks&repository-name=bks-web&env=APP_ENCRYPTION_KEY%2CCRON_SECRET%2CADMIN_EMAIL%2CADMIN_PASSWORD&envDescription=APP_ENCRYPTION_KEY%20and%20CRON_SECRET%3A%20any%20long%20random%20strings%20%2832%2B%20letters%20and%20digits%29.%20ADMIN_EMAIL%20%2F%20ADMIN_PASSWORD%3A%20your%20first%20administrator%20account%20%288%2B%20characters%29.&envLink=https%3A%2F%2Fgithub.com%2Fsumsumai%2Fbks%2Fblob%2Fmain%2FDEPLOY.md%23one-click-on-vercel&stores=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22neon%22%2C%22productSlug%22%3A%22neon%22%2C%22protocol%22%3A%22storage%22%7D%5D)
+
+The button:
+
+1. copies the web app into a new GitHub repository on your account (`bks-web`),
+2. creates a **Neon Postgres** database and connects it (accept the Neon step in the flow),
+3. asks for four values:
+
+   | Variable | What to enter |
+   |---|---|
+   | `APP_ENCRYPTION_KEY` | 32+ random letters/digits. Keep a copy: it encrypts stored keys (see [§2](#2-how-the-database-works)). |
+   | `CRON_SECRET` | 32+ random letters/digits (Vercel sends it to the reminders job). |
+   | `ADMIN_EMAIL` | Your email: the first administrator. |
+   | `ADMIN_PASSWORD` | 8+ characters. Change it after the first sign-in. |
+
+   Generate random values with `openssl rand -hex 24`, or any password manager.
+4. builds: the build applies database migrations and creates your administrator automatically.
+
+Open `https://<your-project>.vercel.app/login` and sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`. Then
+follow [§4 First-run configuration](#4-first-run-configuration-in-the-admin) (AI key, plans, Telegram,
+Stripe…). The public URL is detected automatically; set it in Admin → Settings once you add a custom domain.
+
+> **If the build stops with "No database connected"**: Vercel occasionally skips the database step. Open
+> the project → **Storage** → **Create Database** → **Neon** → connect it to the project, then
+> **Deployments → Redeploy**. Nothing else changes.
+
+**Want sample data to look around?** Add the environment variable `DEMO_DATA=true` and redeploy: three
+demo businesses are created (their owners sign in with `demo-password`). Only for testing; remove it and
+don't use it on a real site.
+
+**Custom domain:** Project → Settings → Domains → add `bks.yourdomain.com`, then Admin → Settings →
+Public URL. **Reminders every 10 minutes** (Pro plan): add
+`{ "path": "/api/cron/reminders", "schedule": "*/10 * * * *" }` to `crons` in `vercel.json`.
+
+**Keeping one repository instead of a copy (recommended if you develop BKS):** instead of the button,
+use Vercel → **Add New → Project** → import `sumsumai/bks`, set **Root Directory** to `apps/web`, add a
+Neon database from the Storage tab, add the four variables above, and deploy. Every `git push` to `main`
+then redeploys.
+
+### Step 2 (optional): WhatsApp
+
+Businesses link their own WhatsApp Business app through the WhatsApp gateway, an always-on service.
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/sumsumai/bks)
+
+1. Click the button (Render reads `render.yaml`; the service costs about $7/month on the Starter plan,
+   which never sleeps).
+2. Fill in:
+   - `DATABASE_URL`: the same database. In Vercel → Storage → your Neon database → copy the
+     **unpooled** connection string (`DATABASE_URL_UNPOOLED`).
+   - `APP_ENCRYPTION_KEY`: the same value as on Vercel.
+   - `WEB_URL`: your app URL, e.g. `https://bks.vercel.app`.
+   - `WA_GATEWAY_SECRET` is generated for you.
+3. When it's live, copy its URL (`https://bks-wa-gateway-xxxx.onrender.com`) and, in Render → Environment,
+   the generated `WA_GATEWAY_SECRET`.
+4. In BKS: **Admin → WhatsApp → Settings**, paste *Gateway URL* and *Gateway secret*, save. The page shows
+   the gateway "Online", and businesses can now link WhatsApp from their Channels page.
+
+### Updating
+
+- Button deployment: your `bks-web` repository is a copy. Pull updates from `sumsumai/bks` (`apps/web`)
+  into it, or switch to the "one repository" setup above.
+- Imported repository: `git push` deploys. Migrations run during every build.
+- Render redeploys the gateway on every push to `main` (`autoDeploy`).
 
 ---
 
@@ -284,29 +371,13 @@ docker compose up -d
 
 ## 7. Alternative: managed platforms
 
-If you'd rather not run a server for the web app:
-
-| Piece | Where | Notes |
-|---|---|---|
-| Web app | **Vercel** (or Render, Railway, Fly.io) | Root directory `apps/web`. Build `npm run build`. Set env vars below. Run migrations with `npm run db:migrate` as a release/pre-deploy step (or from your machine against the production `DATABASE_URL`). |
-| Database | **Neon**, Supabase, RDS… | Use the pooled connection string for serverless. `btree_gist` is available on all of them (the migration enables it). |
-| WhatsApp gateway | **A small VM, Railway, Render background worker or Fly.io machine** | Must be a single always-on process (not serverless). Needs outbound internet, the same `DATABASE_URL` and `APP_ENCRYPTION_KEY`, `WA_GATEWAY_SECRET`, and `WEB_URL=https://your-domain`. Expose port 3300 only to the web app (private networking, or a public URL protected by `WA_GATEWAY_SECRET` plus an IP allowlist). |
-| Reminders | Vercel Cron / any scheduler | `GET https://your-domain/api/cron/reminders` every 10–15 min with `Authorization: Bearer $CRON_SECRET`. |
-
-Web app environment variables:
-
-```
-DATABASE_URL=postgres://…
-APP_ENCRYPTION_KEY=…          # same value on the gateway
-CRON_SECRET=…
-WA_GATEWAY_URL=https://gateway.internal-or-private-url
-WA_GATEWAY_SECRET=…           # same value on the gateway
-APP_URL=https://your-domain   # bootstrap; editable in Admin → Settings
-```
-
-Serverless caveats: the per-process rate limiter and the live-updates stream (SSE) work per instance; for
-many instances put rate limiting in your platform's firewall and expect live updates to fall back to the
-regular polling the UI already does.
+The [One click on Vercel](#one-click-on-vercel) setup is the managed option: Vercel (web), Neon (database),
+Render (WhatsApp gateway). Other combinations work the same way: any Next.js host for `apps/web`, any
+Postgres 15+, and any always-on container host for `apps/wa-gateway` (Railway, Fly.io, a small VM). The
+web app needs `DATABASE_URL`, `APP_ENCRYPTION_KEY` and `CRON_SECRET`; it runs `npm run vercel-build`
+(migrations + first admin) or `npm run db:migrate && npm run build`. Call
+`/api/cron/reminders` every 10–15 minutes (or `/api/cron/reminders/daily` once a day) with
+`Authorization: Bearer $CRON_SECRET`.
 
 ---
 

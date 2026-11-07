@@ -1,10 +1,11 @@
 import { after } from "next/server";
 import { safeEqual } from "@/lib/crypto";
+import { getSetting } from "@/lib/settings";
 import { handleGatewayEvent, type GatewayEvent } from "@/lib/channels/whatsapp-router";
 
 /** Events from the WhatsApp gateway (apps/wa-gateway). Private: shared-secret auth, never exposed to browsers. */
 export async function POST(req: Request) {
-  const secret = process.env.WA_GATEWAY_SECRET;
+  const secret = await getSetting("whatsapp.gatewaySecret");
   if (!secret || !safeEqual(req.headers.get("authorization") ?? "", `Bearer ${secret}`)) return new Response("forbidden", { status: 403 });
   const body = (await req.json().catch(() => null)) as { businessId?: string; event?: GatewayEvent } | null;
   if (!body?.businessId || !body.event?.type) return new Response("bad request", { status: 400 });

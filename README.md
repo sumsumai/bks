@@ -2,7 +2,9 @@
 
 An AI-native, multi-tenant booking platform for service businesses. Every business gets a branded booking page, a management workspace, an owner mobile app, and its own isolated **NanoClaw** AI agent that serves customers on WhatsApp, Telegram and web chat.
 
-**Deploying to production? See [DEPLOY.md](DEPLOY.md)** (one server with Docker Compose, or managed platforms; includes how the database works).
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fsumsumai%2Fbks%2Ftree%2Fmain%2Fapps%2Fweb&project-name=bks&repository-name=bks-web&env=APP_ENCRYPTION_KEY%2CCRON_SECRET%2CADMIN_EMAIL%2CADMIN_PASSWORD&envDescription=APP_ENCRYPTION_KEY%20and%20CRON_SECRET%3A%20any%20long%20random%20strings%20%2832%2B%20letters%20and%20digits%29.%20ADMIN_EMAIL%20%2F%20ADMIN_PASSWORD%3A%20your%20first%20administrator%20account%20%288%2B%20characters%29.&envLink=https%3A%2F%2Fgithub.com%2Fsumsumai%2Fbks%2Fblob%2Fmain%2FDEPLOY.md%23one-click-on-vercel&stores=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22neon%22%2C%22productSlug%22%3A%22neon%22%2C%22protocol%22%3A%22storage%22%7D%5D)
+
+**Deploying?** See [DEPLOY.md](DEPLOY.md): one click on Vercel (web app + Neon database; optional WhatsApp gateway on Render), or one server with Docker Compose. It also explains how the database works.
 
 ## The four interfaces
 

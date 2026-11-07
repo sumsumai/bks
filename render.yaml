@@ -1,0 +1,24 @@
+# One-click WhatsApp gateway on Render ("Deploy to Render" button in DEPLOY.md).
+# The gateway must run as ONE always-on instance (it holds every business's WhatsApp connection),
+# which serverless platforms like Vercel can't do. The web app talks to it over HTTPS with a shared secret.
+services:
+  - type: web
+    name: bks-wa-gateway
+    runtime: docker
+    dockerContext: ./apps/wa-gateway
+    dockerfilePath: ./apps/wa-gateway/Dockerfile
+    plan: starter            # always on; the free plan sleeps and would drop WhatsApp connections
+    numInstances: 1          # never scale out: one process per WhatsApp session
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false          # paste the same Postgres URL as the web app (Neon: the unpooled one)
+      - key: APP_ENCRYPTION_KEY
+        sync: false          # paste the same value as the web app
+      - key: WEB_URL
+        sync: false          # your web app URL, e.g. https://bks.vercel.app
+      - key: WA_GATEWAY_SECRET
+        generateValue: true  # copy it into Admin → WhatsApp → Gateway secret
+      - key: HOST
+        value: 0.0.0.0

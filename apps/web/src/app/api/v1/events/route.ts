@@ -5,6 +5,8 @@ import { problem } from "@/lib/api";
 import { resolveTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
+// Streams for up to 5 minutes; the browser's EventSource reconnects automatically.
+export const maxDuration = 300;
 
 /**
  * Server-Sent Events: live notifications for the workspace and the mobile app.

@@ -54,6 +54,8 @@ export const SETTINGS = [
 
   // WhatsApp (linked devices through the gateway)
   { key: "whatsapp.enabled", group: "whatsapp", label: "WhatsApp linking available to businesses", kind: "boolean", default: true },
+  { key: "whatsapp.gatewayUrl", group: "whatsapp", label: "Gateway URL", help: "Where the WhatsApp gateway runs, e.g. https://bks-wa-gateway.onrender.com (or http://wa-gateway:3300 inside Docker).", kind: "string", env: "WA_GATEWAY_URL", default: "" },
+  { key: "whatsapp.gatewaySecret", group: "whatsapp", label: "Gateway secret", help: "The WA_GATEWAY_SECRET value configured on the gateway.", kind: "secret", env: "WA_GATEWAY_SECRET", default: null },
   { key: "whatsapp.staleMinutes", group: "whatsapp", label: "Don't auto-answer messages delivered later than (minutes)", help: "Messages that arrive late after a reconnect are stored without an agent reply.", kind: "number", env: "WA_STALE_MINUTES", default: 120, min: 5, max: 10080 },
 
   // Billing
@@ -107,6 +109,8 @@ export async function getSettings(): Promise<Settings> {
       }
     }
     if (raw === undefined || raw === null) raw = def.env ? process.env[def.env] : undefined;
+    // On Vercel the production domain is known without configuration.
+    if ((raw === undefined || raw === "") && def.key === "general.appUrl" && process.env.VERCEL_PROJECT_PRODUCTION_URL) raw = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
     out[def.key] = coerce(def, raw);
   }
   cache = { at: Date.now(), value: out as Settings };

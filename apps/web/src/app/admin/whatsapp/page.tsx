@@ -22,7 +22,7 @@ export default async function AdminWhatsApp() {
       .where(and(eq(schema.channels.kind, "whatsapp")))
       .orderBy(desc(schema.channels.createdAt)),
     describeSettings(),
-    gatewayConfigured() ? waHealth().catch((e) => ({ error: String(e?.message ?? e) })) : Promise.resolve(null),
+    (await gatewayConfigured()) ? waHealth().catch((e) => ({ error: String(e?.message ?? e) })) : Promise.resolve(null),
   ]);
   const sessions = health && !("error" in health) ? new Map(health.sessions.map((s) => [s.businessId, s])) : new Map();
   const linked = rows.filter((r) => r.channel.status === "connected").length;
@@ -33,9 +33,14 @@ export default async function AdminWhatsApp() {
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <Stat label="Linked numbers" value={linked} icon="whatsapp" />
         <Stat label="Live sessions in gateway" value={health && !("error" in health) ? health.sessions.filter((s) => s.status === "open").length : "—"} icon="bolt" />
-        <Stat label="Gateway" value={!health ? "Not configured" : "error" in health ? "Unreachable" : "Online"} icon="plug" />
+        <Stat label="Gateway" value={!health ? "Not connected" : "error" in health ? "Unreachable" : "Online"} icon="plug" />
       </div>
-      {health && "error" in health && <p className="mb-6 rounded-card bg-bad/10 px-4 py-3 text-[14px] text-bad">Gateway unreachable: {health.error}. Check that apps/wa-gateway is running and WA_GATEWAY_URL / WA_GATEWAY_SECRET match.</p>}
+      {!health && (
+        <p className="mb-6 rounded-card bg-subtle px-4 py-3 text-[14px] text-muted">
+          No WhatsApp gateway connected yet. The gateway is a small always-on service (it can't run on serverless hosting). Deploy it with one click on Render (see DEPLOY.md → WhatsApp gateway), then paste its URL and secret in Settings on the right.
+        </p>
+      )}
+      {health && "error" in health && <p className="mb-6 rounded-card bg-bad/10 px-4 py-3 text-[14px] text-bad">Gateway unreachable: {health.error}. Check that the gateway is running and that the URL and secret in Settings (right) match it.</p>}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">

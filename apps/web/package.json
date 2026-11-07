@@ -12,11 +12,13 @@
     "db:seed": "tsx --conditions=react-server --env-file-if-exists=.env.local src/db/seed.ts",
     "db:setup": "npm run db:seed",
     "test": "PGLITE_DIR=memory:// DATABASE_URL= tsx --conditions=react-server --test src/lib/*.test.ts",
-    "admin:create": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/create-admin.ts"
+    "admin:create": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/create-admin.ts",
+    "vercel-build": "tsx --conditions=react-server scripts/vercel-build.ts && next build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
     "@electric-sql/pglite": "^0.5.8",
+    "@vercel/functions": "^3.11.0",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.5",
     "pg": "^8.23.1",

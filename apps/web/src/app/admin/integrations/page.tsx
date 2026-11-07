@@ -12,8 +12,6 @@ export const metadata = { title: "System status" };
 const ENV: { key: string; label: string; required: boolean }[] = [
   { key: "DATABASE_URL", label: "Postgres connection", required: true },
   { key: "APP_ENCRYPTION_KEY", label: "Encryption key for secrets at rest (shared with the WhatsApp gateway)", required: true },
-  { key: "WA_GATEWAY_URL", label: "WhatsApp gateway internal URL", required: false },
-  { key: "WA_GATEWAY_SECRET", label: "Shared secret between web app and WhatsApp gateway", required: false },
   { key: "CRON_SECRET", label: "Protects the reminders cron endpoint", required: true },
 ];
 
@@ -25,7 +23,7 @@ export default async function SystemStatus() {
     isLiveMode(),
     telegramConfigured(),
     stripeEnabled(),
-    gatewayConfigured() ? waHealth().then(() => true).catch(() => false) : Promise.resolve(null),
+    (await gatewayConfigured()) ? waHealth().then(() => true).catch(() => false) : Promise.resolve(null),
   ]);
   const checks = [
     { label: "AI model access", ok: ai, detail: ai ? (s["ai.enabled"] ? "Live" : "Configured but switched off in Settings") : "Offline mode (no Anthropic key)" },

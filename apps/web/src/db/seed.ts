@@ -150,14 +150,18 @@ async function business(
   return biz;
 }
 
-async function main() {
-  await runMigrations();
-  const [{ count }] = (await db.execute(sql`select count(*)::int as count from users`)).rows as { count: number }[];
+/**
+ * Insert demo businesses, owners and community content into an EMPTY database.
+ * `admin`: an existing platform admin to author community posts; when omitted, the demo admin
+ * admin@bks.example (password demo-password) is created, which is fine locally but not on a public site.
+ */
+export async function seedDemo(opts: { admin?: schema.User } = {}) {
+  const [{ count }] = (await db.execute(sql`select count(*)::int as count from businesses`)).rows as { count: number }[];
   if (Number(count) > 0) {
-    console.log("Database already has data; skipping seed.");
-    process.exit(0);
+    console.log("Database already has businesses; skipping demo data.");
+    return false;
   }
-  const admin = await user("admin@bks.example", "Platform Admin", true);
+  const admin = opts.admin ?? (await user("admin@bks.example", "Platform Admin", true));
   const maya = await user("owner@atelier.example", "Maya Laurent");
   const tom = await user("owner@ironhouse.example", "Tom Reyes");
   const ana = await user("owner@lumen.example", "Ana Costa");
@@ -289,10 +293,16 @@ async function main() {
   owner@atelier.example     Atelier Nord (VIP)
   owner@ironhouse.example   Ironhouse Barbers (Standard)
   owner@lumen.example       Lumen Spa (VIP)`);
+  return true;
+}
+
+async function main() {
+  await runMigrations();
+  await seedDemo();
   process.exit(0);
 }
 
-main().catch((e) => {
+if (import.meta.url === `file://${process.argv[1]}`) main().catch((e) => {
   console.error(e);
   process.exit(1);
 });

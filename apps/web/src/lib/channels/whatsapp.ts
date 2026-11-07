@@ -5,17 +5,26 @@ import { getSettings } from "../settings";
 // by QR code or pairing code. The sockets live in the separate WhatsApp gateway (apps/wa-gateway, Baileys);
 // this module is the web app's client for it. The business keeps using WhatsApp on its phone as usual.
 
-/** Gateway location and secret are infrastructure (env), shared with apps/wa-gateway. */
-export const gatewayConfigured = () => Boolean(process.env.WA_GATEWAY_URL && process.env.WA_GATEWAY_SECRET);
+/** Gateway URL + secret: Admin → WhatsApp (or WA_GATEWAY_URL / WA_GATEWAY_SECRET env). */
+async function gateway() {
+  const s = await getSettings();
+  return { url: (s["whatsapp.gatewayUrl"] ?? "").replace(/\/$/, ""), secret: s["whatsapp.gatewaySecret"] ?? "" };
+}
+
+export const gatewayConfigured = async () => {
+  const g = await gateway();
+  return Boolean(g.url && g.secret);
+};
 
 /** Businesses may link WhatsApp: gateway configured and the platform switch (Admin → WhatsApp) on. */
-export const whatsappAvailable = async () => gatewayConfigured() && Boolean((await getSettings())["whatsapp.enabled"]);
+export const whatsappAvailable = async () => (await gatewayConfigured()) && Boolean((await getSettings())["whatsapp.enabled"]);
 
 async function gw<T>(path: string, body?: unknown): Promise<T> {
-  if (!gatewayConfigured()) throw new Error("WhatsApp gateway is not configured (WA_GATEWAY_URL / WA_GATEWAY_SECRET)");
-  const res = await fetch(`${process.env.WA_GATEWAY_URL!.replace(/\/$/, "")}${path}`, {
+  const g = await gateway();
+  if (!g.url || !g.secret) throw new Error("WhatsApp gateway is not configured (Admin → WhatsApp)");
+  const res = await fetch(`${g.url}${path}`, {
     method: body === undefined ? "GET" : "POST",
-    headers: { authorization: `Bearer ${process.env.WA_GATEWAY_SECRET}`, "content-type": "application/json" },
+    headers: { authorization: `Bearer ${g.secret}`, "content-type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(15_000),
   });
