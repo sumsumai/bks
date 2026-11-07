@@ -1,0 +1,85 @@
+# Production stack on one server: Postgres, web app, WhatsApp gateway, HTTPS proxy, reminders cron.
+#   cp .env.example .env   # fill it in
+#   docker compose up -d --build
+# See DEPLOY.md.
+name: bks
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bks
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: bks
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bks"]
+      interval: 5s
+      retries: 20
+
+  web:
+    build: ../apps/web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://bks:${POSTGRES_PASSWORD}@db:5432/bks
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?set APP_ENCRYPTION_KEY in .env}
+      CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET in .env}
+      WA_GATEWAY_URL: http://wa-gateway:3300
+      WA_GATEWAY_SECRET: ${WA_GATEWAY_SECRET:?set WA_GATEWAY_SECRET in .env}
+      # Bootstrap only: the public URL and keys can be changed later in Admin → Settings.
+      APP_URL: https://${DOMAIN:?set DOMAIN in .env}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 15s
+      start_period: 60s
+      retries: 10
+
+  wa-gateway:
+    build: ../apps/wa-gateway
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://bks:${POSTGRES_PASSWORD}@db:5432/bks
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
+      WA_GATEWAY_SECRET: ${WA_GATEWAY_SECRET}
+      WEB_URL: http://web:3000
+      HOST: 0.0.0.0
+      PORT: "3300"
+    # Never published: only the web app talks to it, on the internal network.
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [web]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  cron:
+    image: curlimages/curl:8.11.1
+    restart: unless-stopped
+    depends_on: [web]
+    environment:
+      CRON_SECRET: ${CRON_SECRET}
+    # Appointment reminders every 10 minutes.
+    entrypoint: ["/bin/sh", "-c", "while true; do curl -fsS -H \"Authorization: Bearer $$CRON_SECRET\" http://web:3000/api/cron/reminders || true; echo; sleep 600; done"]
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,13 @@
+node_modules/
+.next/
+.expo/
+dist/
+.pglite/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+!**/.env.example
+.DS_Store
+*.log
+NOTES.local.md

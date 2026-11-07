@@ -1,0 +1,20 @@
+# Local Postgres for development: docker compose up -d
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: bks-db
+    environment:
+      POSTGRES_USER: bks
+      POSTGRES_PASSWORD: bks
+      POSTGRES_DB: bks
+    ports:
+      - "127.0.0.1:5436:5432"
+    volumes:
+      - bks-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bks"]
+      interval: 2s
+      retries: 20
+    restart: unless-stopped
+volumes:
+  bks-pg:

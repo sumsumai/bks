@@ -1,0 +1,7 @@
+# Automatic HTTPS (Let's Encrypt) for your domain. The internal endpoints are not exposed.
+{$DOMAIN} {
+	encode zstd gzip
+	@internal path /api/internal/*
+	respond @internal 404
+	reverse_proxy web:3000
+}
