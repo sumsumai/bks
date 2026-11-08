@@ -28,5 +28,6 @@
     "typecheck": "tsc --noEmit",
     "doctor": "npx expo-doctor"
   },
-  "private": true
+  "private": true,
+  "license": "MIT"
 }

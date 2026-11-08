@@ -110,3 +110,7 @@ Claude       NanoClaw agent runtime (apps/web/src/lib/agent)
 - Agent conversations are processed one turn at a time per message; a per-conversation lock would serialise rapid bursts.
 - Team invitations (multi-user businesses work in the data model; there's no invite UI yet).
 - Platform admins without their own business can moderate from `/admin/community` but not browse `/app/community`.
+
+## License
+
+[MIT](LICENSE) © 2026 sumsumai
